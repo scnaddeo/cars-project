@@ -2,7 +2,7 @@ import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { isAdminRequest } from "@/lib/requireAdmin";
 import { getCar } from "@/lib/carStore";
-import LogoutButton from "@/components/admin/LogoutButton";
+import AdminBar from "@/components/admin/AdminBar";
 import CarForm from "@/components/admin/CarForm";
 
 export default async function EditCarPage({ params }) {
@@ -16,12 +16,7 @@ export default async function EditCarPage({ params }) {
 
   return (
     <>
-      <div className="admin-bar">
-        <div className="container">
-          <div className="wordmark">FERRAIO <span>MOTORS</span></div>
-          <LogoutButton />
-        </div>
-      </div>
+      <AdminBar active="cars" />
 
       <main className="admin-main">
         <div className="container" style={{ maxWidth: 760 }}>

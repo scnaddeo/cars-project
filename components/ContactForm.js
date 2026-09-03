@@ -2,18 +2,10 @@
 
 import { useRef, useState } from "react";
 
-function encodeForm(form) {
-  const data = new FormData(form);
-  const pairs = [];
-  data.forEach((value, key) => {
-    pairs.push(encodeURIComponent(key) + "=" + encodeURIComponent(value));
-  });
-  return pairs.join("&");
-}
-
 export default function ContactForm() {
   const formRef = useRef(null);
   const [status, setStatus] = useState(null);
+  const [isError, setIsError] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   function handleSubmit(e) {
@@ -21,35 +13,34 @@ export default function ContactForm() {
     const form = formRef.current;
     if (!form) return;
     setSubmitting(true);
+    setIsError(false);
 
-    fetch("/", {
+    const payload = Object.fromEntries(new FormData(form).entries());
+
+    fetch("/api/contact", {
       method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: encodeForm(form),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
     })
-      .then(() => {
+      .then(async (res) => {
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          throw new Error(body.error || "Something went wrong.");
+        }
         setStatus(
           "Thank you — your message has been received. A member of our team will be in touch shortly."
         );
         form.reset();
       })
-      .catch(() => {
-        setStatus("Sorry — something went wrong sending your message. Please email us directly instead.");
+      .catch((err) => {
+        setIsError(true);
+        setStatus(err.message || "Sorry — something went wrong sending your message. Please email us directly instead.");
       })
       .finally(() => setSubmitting(false));
   }
 
   return (
-    <form
-      ref={formRef}
-      name="contact"
-      method="POST"
-      data-netlify="true"
-      netlify-honeypot="company"
-      noValidate
-      onSubmit={handleSubmit}
-    >
-      <input type="hidden" name="form-name" value="contact" />
+    <form ref={formRef} noValidate onSubmit={handleSubmit}>
       <p style={{ position: "absolute", left: "-9999px" }} aria-hidden="true">
         <label>
           Leave this field empty <input tabIndex={-1} autoComplete="off" name="company" />
@@ -90,7 +81,11 @@ export default function ContactForm() {
       <button type="submit" className="btn btn--solid mt-lg" disabled={submitting}>
         {submitting ? "Sending…" : "Send Enquiry"}
       </button>
-      <div className={`form-status${status ? " is-visible" : ""}`} role="status">
+      <div
+        className={`form-status${status ? " is-visible" : ""}`}
+        role="status"
+        style={isError ? { borderColor: "#b0574a", color: "#e0a25a" } : undefined}
+      >
         {status}
       </div>
       <p className="form-note">

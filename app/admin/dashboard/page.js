@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { isAdminRequest } from "@/lib/requireAdmin";
 import { listCars } from "@/lib/carStore";
-import LogoutButton from "@/components/admin/LogoutButton";
+import AdminBar from "@/components/admin/AdminBar";
 import DeleteCarButton from "@/components/admin/DeleteCarButton";
 
 export default async function DashboardPage() {
@@ -14,12 +14,7 @@ export default async function DashboardPage() {
 
   return (
     <>
-      <div className="admin-bar">
-        <div className="container">
-          <div className="wordmark">FERRAIO <span>MOTORS</span></div>
-          <LogoutButton />
-        </div>
-      </div>
+      <AdminBar active="cars" />
 
       <main className="admin-main">
         <div className="container">
