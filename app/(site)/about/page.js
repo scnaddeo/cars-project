@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getContent } from "@/lib/contentStore";
 
 export const metadata = {
   title: "About",
@@ -6,19 +7,19 @@ export const metadata = {
     "Meet the founders of Ferraio Motors and learn how a family of Argentinian racing drivers built an atelier for bespoke classic car recreation.",
 };
 
-export default function AboutPage() {
+export const dynamic = "force-dynamic";
+
+export default async function AboutPage() {
+  const c = await getContent();
+
   return (
     <>
       <section className="page-hero">
         <div className="container">
           <div className="breadcrumb"><Link href="/">Home</Link> / About</div>
           <p className="eyebrow">Our Story</p>
-          <h1>A family of racers, building history by hand.</h1>
-          <p className="lede">
-            Ferraio Motors exists because two brothers couldn&rsquo;t stop thinking about the cars
-            their family raced. What started as a personal obsession is now an atelier trusted by
-            collectors around the world.
-          </p>
+          <h1>{c.about_hero_title}</h1>
+          <p className="lede">{c.about_hero_lede}</p>
         </div>
       </section>
 
@@ -31,23 +32,10 @@ export default function AboutPage() {
             <div>
               <p className="eyebrow">The Founders</p>
               <h2>Luciano &amp; Lucas Guitian</h2>
-              <p>
-                Ferraio Motors was founded by brothers Luciano and Lucas Guitian, whose fascination
-                with classic car recreation was inherited rather than learned. They come from a
-                family of Argentinian racing drivers, and grew up around the sound, smell, and
-                mechanics of the cars their relatives raced.
-              </p>
-              <p>
-                That upbringing became a calling. Rather than simply admire the great cars of
-                motorsport history, the brothers set out to make it possible for enthusiasts to
-                actually own and drive them — rebuilt by hand, to the same standard that first made
-                them legendary.
-              </p>
+              <p>{c.about_founders_body1}</p>
+              <p>{c.about_founders_body2}</p>
               <div className="quote-block">
-                <p>
-                  &ldquo;We didn&rsquo;t inherit a business. We inherited a passion for these cars,
-                  and we built the business around it.&rdquo;
-                </p>
+                <p>&ldquo;{c.about_quote_text}&rdquo;</p>
                 <cite>Luciano &amp; Lucas Guitian, Founders</cite>
               </div>
             </div>

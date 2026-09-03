@@ -3,34 +3,31 @@ import CarCard from "@/components/CarCard";
 import PostCard from "@/components/PostCard";
 import { BLOG_POSTS } from "@/lib/data";
 import { listCars } from "@/lib/carStore";
+import { getContent } from "@/lib/contentStore";
 
 const featuredPosts = BLOG_POSTS.slice(0, 3);
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const cars = await listCars();
+  const [cars, c] = await Promise.all([listCars(), getContent()]);
   const featuredCars = cars.slice(0, 3);
 
   return (
     <>
       <section className="hero">
         <div className="container hero-content">
-          <p className="eyebrow">Handbuilt · Aluminum-Bodied · Bespoke</p>
-          <h1>Own a piece of automotive history, built for you.</h1>
-          <p className="lede">
-            Ferraio Motors recreates the world&rsquo;s most beautiful and celebrated cars for a new
-            generation of enthusiasts — each one hand formed in aluminum, built on original
-            components, and finished bespoke to its owner.
-          </p>
+          <p className="eyebrow">{c.home_hero_eyebrow}</p>
+          <h1>{c.home_hero_title}</h1>
+          <p className="lede">{c.home_hero_lede}</p>
           <div className="hero-actions">
             <Link href="/inventory/" className="btn btn--solid">View Available Cars</Link>
             <Link href="/about/" className="btn btn--ghost">Our Story</Link>
           </div>
           <div className="hero-stats">
-            <div className="stat"><b>2</b><span>Founding Brothers</span></div>
-            <div className="stat"><b>100%</b><span>Hand Formed Aluminum</span></div>
-            <div className="stat"><b>Bespoke</b><span>Every Commission</span></div>
+            <div className="stat"><b>{c.home_stat1_number}</b><span>{c.home_stat1_label}</span></div>
+            <div className="stat"><b>{c.home_stat2_number}</b><span>{c.home_stat2_label}</span></div>
+            <div className="stat"><b>{c.home_stat3_number}</b><span>{c.home_stat3_label}</span></div>
           </div>
         </div>
       </section>
@@ -39,13 +36,8 @@ export default async function HomePage() {
         <div className="container">
           <div className="section-head reveal">
             <p className="eyebrow">The Workshop</p>
-            <h2>A family passion, built by hand.</h2>
-            <p>
-              Founded by brothers Luciano and Lucas Guitian, Ferraio Motors was born from a family
-              of Argentinian racing drivers and a lifelong fascination with the cars they raced.
-              What began as a personal pursuit has become an atelier trusted by collectors around
-              the world.
-            </p>
+            <h2>{c.home_workshop_title}</h2>
+            <p>{c.home_workshop_body}</p>
           </div>
           <div className="grid-3 reveal">
             <div className="feature">
@@ -86,16 +78,9 @@ export default async function HomePage() {
             </div>
             <div className="reveal">
               <p className="eyebrow">Bespoke by Design</p>
-              <h2>Every car is built once — for one owner.</h2>
-              <p>
-                No two commissions leave our workshop the same. From cabin trim to mechanical
-                specification, each build is shaped in close collaboration with its owner, so the
-                finished car carries their signature as much as its own history.
-              </p>
-              <p>
-                The result is a car that looks, sounds, and drives as it did the day its legend
-                began — with the personal touch of the person who commissioned it.
-              </p>
+              <h2>{c.home_bespoke_title}</h2>
+              <p>{c.home_bespoke_body1}</p>
+              <p>{c.home_bespoke_body2}</p>
               <Link href="/about/" className="btn btn--ghost">Meet the Founders</Link>
             </div>
           </div>
@@ -146,11 +131,8 @@ export default async function HomePage() {
       <section className="cta-banner" id="contact">
         <div className="container">
           <p className="eyebrow">Start a Commission</p>
-          <h2>Tell us the car you&rsquo;ve always wanted.</h2>
-          <p className="lede">
-            Whether you&rsquo;re commissioning a bespoke build or enquiring about a completed car,
-            our team will respond personally within one business day.
-          </p>
+          <h2>{c.home_cta_title}</h2>
+          <p className="lede">{c.home_cta_lede}</p>
           <div className="cta-actions">
             <Link href="/contact/" className="btn btn--solid">Get in Touch</Link>
             <Link href="/inventory/" className="btn btn--ghost">View Available Cars</Link>
