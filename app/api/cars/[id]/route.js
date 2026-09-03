@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCar, updateCar, deleteCar } from "@/lib/carStore";
 import { deleteImage } from "@/lib/imageStore";
+import { deleteVideo } from "@/lib/videoStore";
 import { isAdminRequest } from "@/lib/requireAdmin";
 
 export async function GET(request, { params }) {
@@ -29,6 +30,9 @@ export async function DELETE(request, { params }) {
   const car = await getCar(id);
   if (car?.images?.length) {
     await Promise.all(car.images.map((key) => deleteImage(key)));
+  }
+  if (car?.videos?.length) {
+    await Promise.all(car.videos.map((key) => deleteVideo(key)));
   }
   const ok = await deleteCar(id);
   if (!ok) return NextResponse.json({ error: "Not found" }, { status: 404 });

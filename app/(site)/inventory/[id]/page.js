@@ -59,6 +59,17 @@ export default async function CarDetailPage({ params }) {
               </div>
             </div>
           </div>
+
+          {car.videos?.length > 0 && (
+            <div className="mt-lg">
+              <h3 style={{ marginBottom: "1rem" }}>Video</h3>
+              <div className="video-grid">
+                {car.videos.map((key) => (
+                  <video key={key} className="car-video" src={`/api/videos/${key}`} controls playsInline />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </section>
     </>

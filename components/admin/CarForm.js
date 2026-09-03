@@ -4,10 +4,16 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 const BADGE_OPTIONS = ["Recreation", "In Production", "Completed", "Ready to Import", "Sold"];
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5MB — must match app/api/images/route.js
+const MAX_VIDEO_BYTES = 4 * 1024 * 1024; // 4MB — must match app/api/videos/route.js
 
 function emptySpecs(specs) {
   const s = specs && specs.length ? specs : ["", "", ""];
   return [s[0] || "", s[1] || "", s[2] || ""];
+}
+
+function formatMB(bytes) {
+  return (bytes / (1024 * 1024)).toFixed(1);
 }
 
 export default function CarForm({ mode, car }) {
@@ -20,46 +26,95 @@ export default function CarForm({ mode, car }) {
   const [description, setDescription] = useState(car?.description || "");
   const [specs, setSpecs] = useState(emptySpecs(car?.specs));
   const [images, setImages] = useState(car?.images || []); // existing image keys
-  const [newFiles, setNewFiles] = useState([]); // File objects staged for upload
+  const [newImageFiles, setNewImageFiles] = useState([]); // File objects staged for upload
+  const [videos, setVideos] = useState(car?.videos || []); // existing video keys
+  const [newVideoFiles, setNewVideoFiles] = useState([]); // File objects staged for upload
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [progress, setProgress] = useState(null);
 
-  function handleFiles(fileList) {
+  function handleImageFiles(fileList) {
     const files = Array.from(fileList || []);
-    setNewFiles((prev) => [...prev, ...files]);
+    const oversized = files.find((f) => f.size > MAX_IMAGE_BYTES);
+    if (oversized) {
+      setError(`${oversized.name} is larger than ${formatMB(MAX_IMAGE_BYTES)}MB — please use a smaller photo.`);
+      return;
+    }
+    setError(null);
+    setNewImageFiles((prev) => [...prev, ...files]);
+  }
+
+  function handleVideoFiles(fileList) {
+    const files = Array.from(fileList || []);
+    const oversized = files.find((f) => f.size > MAX_VIDEO_BYTES);
+    if (oversized) {
+      setError(
+        `${oversized.name} is larger than ${formatMB(MAX_VIDEO_BYTES)}MB — trim the clip or lower the export quality.`
+      );
+      return;
+    }
+    setError(null);
+    setNewVideoFiles((prev) => [...prev, ...files]);
   }
 
   function removeExistingImage(key) {
     setImages((prev) => prev.filter((k) => k !== key));
   }
-
-  function removeNewFile(index) {
-    setNewFiles((prev) => prev.filter((_, i) => i !== index));
+  function removeNewImageFile(index) {
+    setNewImageFiles((prev) => prev.filter((_, i) => i !== index));
+  }
+  function removeExistingVideo(key) {
+    setVideos((prev) => prev.filter((k) => k !== key));
+  }
+  function removeNewVideoFile(index) {
+    setNewVideoFiles((prev) => prev.filter((_, i) => i !== index));
   }
 
   function updateSpec(index, value) {
     setSpecs((prev) => prev.map((s, i) => (i === index ? value : s)));
   }
 
+  // Uploads one file per request (not batched) so a single multipart body
+  // never risks exceeding Netlify's ~6MB function payload limit, regardless
+  // of how many files are staged.
+  async function uploadOneByOne(files, endpoint, fieldName, onProgress) {
+    const keys = [];
+    for (let i = 0; i < files.length; i++) {
+      onProgress?.(i + 1, files.length);
+      const formData = new FormData();
+      formData.append(fieldName, files[i]);
+      const res = await fetch(endpoint, { method: "POST", body: formData });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(body.error || `Upload failed for ${files[i].name}`);
+      }
+      keys.push(body.key);
+    }
+    return keys;
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
     setSubmitting(true);
     setError(null);
+    setProgress(null);
 
     try {
-      let uploadedKeys = [];
-      if (newFiles.length) {
-        const formData = new FormData();
-        newFiles.forEach((file) => formData.append("images", file));
-        const uploadRes = await fetch("/api/images", { method: "POST", body: formData });
-        const uploadBody = await uploadRes.json();
-        if (!uploadRes.ok) {
-          setError(uploadBody.error || "Image upload failed.");
-          setSubmitting(false);
-          return;
-        }
-        uploadedKeys = uploadBody.keys;
+      let uploadedImageKeys = [];
+      if (newImageFiles.length) {
+        uploadedImageKeys = await uploadOneByOne(newImageFiles, "/api/images", "image", (done, total) =>
+          setProgress(`Uploading photo ${done} of ${total}…`)
+        );
       }
+
+      let uploadedVideoKeys = [];
+      if (newVideoFiles.length) {
+        uploadedVideoKeys = await uploadOneByOne(newVideoFiles, "/api/videos", "video", (done, total) =>
+          setProgress(`Uploading video ${done} of ${total}…`)
+        );
+      }
+
+      setProgress("Saving…");
 
       const payload = {
         make,
@@ -69,7 +124,8 @@ export default function CarForm({ mode, car }) {
         price,
         description,
         specs: specs.filter((s) => s.trim() !== ""),
-        images: [...images, ...uploadedKeys],
+        images: [...images, ...uploadedImageKeys],
+        videos: [...videos, ...uploadedVideoKeys],
       };
 
       const url = mode === "edit" ? `/api/cars/${car.id}` : "/api/cars";
@@ -85,14 +141,16 @@ export default function CarForm({ mode, car }) {
         const body = await res.json().catch(() => ({}));
         setError(body.error || "Could not save this car.");
         setSubmitting(false);
+        setProgress(null);
         return;
       }
 
       router.push("/admin/dashboard");
       router.refresh();
-    } catch {
-      setError("Something went wrong. Please try again.");
+    } catch (err) {
+      setError(err.message || "Something went wrong. Please try again.");
       setSubmitting(false);
+      setProgress(null);
     }
   }
 
@@ -154,7 +212,7 @@ export default function CarForm({ mode, car }) {
       <div className="field mt-lg">
         <label htmlFor="photos">Photos</label>
         <label htmlFor="photos" className="image-drop">
-          Click to choose photos (JPG, PNG, WEBP, GIF — up to 6MB each)
+          Click to choose photos (JPG, PNG, WEBP, GIF — up to {formatMB(MAX_IMAGE_BYTES)}MB each)
         </label>
         <input
           id="photos"
@@ -162,10 +220,13 @@ export default function CarForm({ mode, car }) {
           accept="image/jpeg,image/png,image/webp,image/gif"
           multiple
           style={{ display: "none" }}
-          onChange={(e) => handleFiles(e.target.files)}
+          onChange={(e) => {
+            handleImageFiles(e.target.files);
+            e.target.value = "";
+          }}
         />
 
-        {(images.length > 0 || newFiles.length > 0) && (
+        {(images.length > 0 || newImageFiles.length > 0) && (
           <div className="image-preview-grid">
             {images.map((key) => (
               <div className="image-preview" key={key}>
@@ -175,10 +236,50 @@ export default function CarForm({ mode, car }) {
                 </button>
               </div>
             ))}
-            {newFiles.map((file, i) => (
+            {newImageFiles.map((file, i) => (
               <div className="image-preview" key={`${file.name}-${i}`}>
                 <img src={URL.createObjectURL(file)} alt="" />
-                <button type="button" onClick={() => removeNewFile(i)} aria-label="Remove photo">
+                <button type="button" onClick={() => removeNewImageFile(i)} aria-label="Remove photo">
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="field mt-lg">
+        <label htmlFor="videos">Videos</label>
+        <label htmlFor="videos" className="image-drop">
+          Click to choose short video clips (MP4, WebM, MOV — up to {formatMB(MAX_VIDEO_BYTES)}MB each,
+          roughly a few seconds at compressed quality)
+        </label>
+        <input
+          id="videos"
+          type="file"
+          accept="video/mp4,video/webm,video/quicktime"
+          multiple
+          style={{ display: "none" }}
+          onChange={(e) => {
+            handleVideoFiles(e.target.files);
+            e.target.value = "";
+          }}
+        />
+
+        {(videos.length > 0 || newVideoFiles.length > 0) && (
+          <div className="image-preview-grid">
+            {videos.map((key) => (
+              <div className="image-preview" key={key}>
+                <video src={`/api/videos/${key}`} muted />
+                <button type="button" onClick={() => removeExistingVideo(key)} aria-label="Remove video">
+                  ×
+                </button>
+              </div>
+            ))}
+            {newVideoFiles.map((file, i) => (
+              <div className="image-preview" key={`${file.name}-${i}`}>
+                <video src={URL.createObjectURL(file)} muted />
+                <button type="button" onClick={() => removeNewVideoFile(i)} aria-label="Remove video">
                   ×
                 </button>
               </div>
@@ -188,7 +289,7 @@ export default function CarForm({ mode, car }) {
       </div>
 
       <button type="submit" className="btn btn--solid mt-lg" disabled={submitting}>
-        {submitting ? "Saving…" : mode === "edit" ? "Save Changes" : "Add Car"}
+        {submitting ? progress || "Saving…" : mode === "edit" ? "Save Changes" : "Add Car"}
       </button>
       {error && <div className="admin-error">{error}</div>}
     </form>
