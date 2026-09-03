@@ -1,0 +1,6 @@
+[build]
+  command = "npm run build"
+
+# No `publish` directory: Netlify's Next.js Runtime detects this as a
+# standard Next.js app and builds/deploys it automatically (SSR + API
+# routes + Netlify Blobs all work out of the box, no extra config needed).
