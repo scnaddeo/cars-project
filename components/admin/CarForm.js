@@ -16,6 +16,26 @@ function formatMB(bytes) {
   return (bytes / (1024 * 1024)).toFixed(1);
 }
 
+// Car cards, the gallery, and thumbnails are all landscape boxes that crop
+// with object-fit: cover — a portrait photo gets cropped down to a thin
+// vertical sliver instead of showing the car. Reading dimensions client-side
+// lets us catch this before upload instead of after the card looks broken.
+function getImageDimensions(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve({ width: img.naturalWidth, height: img.naturalHeight });
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error(`Could not read ${file.name} as an image.`));
+    };
+    img.src = url;
+  });
+}
+
 export default function CarForm({ mode, car }) {
   const router = useRouter();
   const [make, setMake] = useState(car?.make || "");
@@ -33,13 +53,32 @@ export default function CarForm({ mode, car }) {
   const [submitting, setSubmitting] = useState(false);
   const [progress, setProgress] = useState(null);
 
-  function handleImageFiles(fileList) {
+  async function handleImageFiles(fileList) {
     const files = Array.from(fileList || []);
+
     const oversized = files.find((f) => f.size > MAX_IMAGE_BYTES);
     if (oversized) {
       setError(`${oversized.name} is larger than ${formatMB(MAX_IMAGE_BYTES)}MB — please use a smaller photo.`);
       return;
     }
+
+    try {
+      for (const file of files) {
+        const { width, height } = await getImageDimensions(file);
+        if (height > width) {
+          setError(
+            `${file.name} is a portrait photo (${width}×${height}). Car cards are wide, landscape boxes — a ` +
+              `portrait photo gets cropped down to a sliver of the car. Please upload a landscape photo instead ` +
+              `(width greater than height).`
+          );
+          return;
+        }
+      }
+    } catch (err) {
+      setError(err.message || "Could not read one of the selected photos.");
+      return;
+    }
+
     setError(null);
     setNewImageFiles((prev) => [...prev, ...files]);
   }

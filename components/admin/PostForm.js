@@ -9,6 +9,25 @@ function formatMB(bytes) {
   return (bytes / (1024 * 1024)).toFixed(1);
 }
 
+// Journal cards are landscape boxes cropped with object-fit: cover — a
+// portrait cover photo gets cropped down to a sliver instead of showing
+// the photo, so catch it before upload rather than after the card looks broken.
+function getImageDimensions(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve({ width: img.naturalWidth, height: img.naturalHeight });
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error(`Could not read ${file.name} as an image.`));
+    };
+    img.src = url;
+  });
+}
+
 export default function PostForm({ mode, post }) {
   const router = useRouter();
   const [title, setTitle] = useState(post?.title || "");
@@ -22,13 +41,29 @@ export default function PostForm({ mode, post }) {
   const [submitting, setSubmitting] = useState(false);
   const [progress, setProgress] = useState(null);
 
-  function handleCoverFile(fileList) {
+  async function handleCoverFile(fileList) {
     const file = fileList?.[0];
     if (!file) return;
     if (file.size > MAX_IMAGE_BYTES) {
       setError(`${file.name} is larger than ${formatMB(MAX_IMAGE_BYTES)}MB — please use a smaller photo.`);
       return;
     }
+
+    try {
+      const { width, height } = await getImageDimensions(file);
+      if (height > width) {
+        setError(
+          `${file.name} is a portrait photo (${width}×${height}). Journal cards are wide, landscape boxes — a ` +
+            `portrait photo gets cropped down to a sliver. Please upload a landscape photo instead (width ` +
+            `greater than height).`
+        );
+        return;
+      }
+    } catch (err) {
+      setError(err.message || "Could not read this photo.");
+      return;
+    }
+
     setError(null);
     setNewCoverFile(file);
   }
