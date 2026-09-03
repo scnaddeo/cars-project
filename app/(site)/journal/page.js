@@ -1,13 +1,18 @@
 import Link from "next/link";
 import PostCard from "@/components/PostCard";
-import { BLOG_POSTS } from "@/lib/data";
+import { listPosts } from "@/lib/postStore";
 
 export const metadata = {
   title: "Journal",
   description: "News, build stories, and heritage features from Ferraio Motors' workshop.",
 };
 
-export default function JournalPage() {
+export const dynamic = "force-dynamic";
+
+export default async function JournalPage() {
+  const posts = await listPosts();
+  const [featured, ...rest] = posts;
+
   return (
     <>
       <section className="page-hero">
@@ -24,16 +29,16 @@ export default function JournalPage() {
 
       <section className="section">
         <div className="container">
-          <div className="blog-grid reveal">
-            {BLOG_POSTS.map((post) => (
-              <PostCard key={post.title} post={post} />
-            ))}
-          </div>
-
-          <p className="inventory-note reveal">
-            Only the featured story links to a full sample article — the rest are placeholder
-            entries demonstrating the journal layout.
-          </p>
+          {posts.length === 0 ? (
+            <p className="admin-empty">No stories yet.</p>
+          ) : (
+            <div className="blog-grid reveal">
+              <PostCard post={featured} featured />
+              {rest.map((post) => (
+                <PostCard key={post.id} post={post} />
+              ))}
+            </div>
+          )}
         </div>
       </section>
 

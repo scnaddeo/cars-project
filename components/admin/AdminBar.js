@@ -3,6 +3,7 @@ import LogoutButton from "./LogoutButton";
 
 const LINKS = [
   { key: "cars", href: "/admin/dashboard", label: "Cars" },
+  { key: "journal", href: "/admin/journal", label: "Journal" },
   { key: "messages", href: "/admin/messages", label: "Messages" },
   { key: "content", href: "/admin/content", label: "Content" },
 ];

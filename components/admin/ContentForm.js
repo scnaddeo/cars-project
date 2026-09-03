@@ -22,6 +22,8 @@ const SECTIONS = [
     fields: [
       { key: "home_workshop_title", label: "Headline", type: "text" },
       { key: "home_workshop_body", label: "Body", type: "textarea" },
+      { key: "home_workshop_image", label: "Photo", type: "image" },
+      { key: "home_workshop_caption", label: "Photo caption (shown until a photo is uploaded)", type: "text" },
     ],
   },
   {
@@ -65,34 +67,85 @@ const SECTIONS = [
   },
 ];
 
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5MB — must match app/api/images/route.js
+
 export default function ContentForm({ initialContent }) {
   const [values, setValues] = useState(initialContent);
+  const [newImageFiles, setNewImageFiles] = useState({}); // { [fieldKey]: File }
   const [status, setStatus] = useState(null);
+  const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [progress, setProgress] = useState(null);
 
   function update(key, value) {
     setValues((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function handleImageFile(key, fileList) {
+    const file = fileList?.[0];
+    if (!file) return;
+    if (file.size > MAX_IMAGE_BYTES) {
+      setError(`${file.name} is larger than ${(MAX_IMAGE_BYTES / (1024 * 1024)).toFixed(1)}MB — please use a smaller photo.`);
+      return;
+    }
+    setError(null);
+    setNewImageFiles((prev) => ({ ...prev, [key]: file }));
+  }
+
+  function clearImage(key) {
+    update(key, null);
+    setNewImageFiles((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
   }
 
   async function handleSubmit(e) {
     e.preventDefault();
     setSubmitting(true);
     setStatus(null);
+    setError(null);
+
     try {
+      const payload = { ...values };
+
+      const staged = Object.entries(newImageFiles);
+      for (let i = 0; i < staged.length; i++) {
+        const [key, file] = staged[i];
+        setProgress(`Uploading photo ${i + 1} of ${staged.length}…`);
+        const formData = new FormData();
+        formData.append("image", file);
+        const res = await fetch("/api/images", { method: "POST", body: formData });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          setError(body.error || "Photo upload failed.");
+          setSubmitting(false);
+          setProgress(null);
+          return;
+        }
+        payload[key] = body.key;
+      }
+
+      setProgress("Saving…");
+
       const res = await fetch("/api/content", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(values),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) {
-        setStatus("Could not save. Please try again.");
+        setError("Could not save. Please try again.");
         return;
       }
+      setValues(payload);
+      setNewImageFiles({});
       setStatus("Saved — changes are live on the site now.");
     } catch {
-      setStatus("Something went wrong. Please try again.");
+      setError("Something went wrong. Please try again.");
     } finally {
       setSubmitting(false);
+      setProgress(null);
     }
   }
 
@@ -111,6 +164,40 @@ export default function ContentForm({ initialContent }) {
                     value={values[field.key] || ""}
                     onChange={(e) => update(field.key, e.target.value)}
                   />
+                ) : field.type === "image" ? (
+                  <>
+                    <label htmlFor={field.key} className="image-drop">
+                      Click to choose a photo (JPG, PNG, WEBP, GIF — up to{" "}
+                      {(MAX_IMAGE_BYTES / (1024 * 1024)).toFixed(1)}MB)
+                    </label>
+                    <input
+                      id={field.key}
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,image/gif"
+                      style={{ display: "none" }}
+                      onChange={(e) => {
+                        handleImageFile(field.key, e.target.files);
+                        e.target.value = "";
+                      }}
+                    />
+                    {(values[field.key] || newImageFiles[field.key]) && (
+                      <div className="image-preview-grid">
+                        <div className="image-preview">
+                          <img
+                            src={
+                              newImageFiles[field.key]
+                                ? URL.createObjectURL(newImageFiles[field.key])
+                                : `/api/images/${values[field.key]}`
+                            }
+                            alt=""
+                          />
+                          <button type="button" onClick={() => clearImage(field.key)} aria-label="Remove photo">
+                            ×
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </>
                 ) : (
                   <input
                     id={field.key}
@@ -126,9 +213,10 @@ export default function ContentForm({ initialContent }) {
       ))}
 
       <button type="submit" className="btn btn--solid" disabled={submitting}>
-        {submitting ? "Saving…" : "Save Changes"}
+        {submitting ? progress || "Saving…" : "Save Changes"}
       </button>
       {status && <div className="admin-error" style={{ color: "var(--color-accent)" }}>{status}</div>}
+      {error && <div className="admin-error">{error}</div>}
     </form>
   );
 }

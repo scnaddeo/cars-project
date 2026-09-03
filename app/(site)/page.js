@@ -1,17 +1,16 @@
 import Link from "next/link";
 import CarCard from "@/components/CarCard";
 import PostCard from "@/components/PostCard";
-import { BLOG_POSTS } from "@/lib/data";
 import { listCars } from "@/lib/carStore";
+import { listPosts } from "@/lib/postStore";
 import { getContent } from "@/lib/contentStore";
-
-const featuredPosts = BLOG_POSTS.slice(0, 3);
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const [cars, c] = await Promise.all([listCars(), getContent()]);
+  const [cars, posts, c] = await Promise.all([listCars(), listPosts(), getContent()]);
   const featuredCars = cars.slice(0, 3);
+  const featuredPosts = posts.slice(0, 3);
 
   return (
     <>
@@ -74,7 +73,15 @@ export default async function HomePage() {
         <div className="container">
           <div className="split reverse">
             <div className="split-media reveal">
-              <div className="media-caption">Workshop — final assembly, aluminum body panel fitting</div>
+              {c.home_workshop_image ? (
+                <img
+                  src={`/api/images/${c.home_workshop_image}`}
+                  alt={c.home_workshop_caption}
+                  style={{ width: "100%", height: "100%", objectFit: "cover", position: "relative", zIndex: 1 }}
+                />
+              ) : (
+                <div className="media-caption">{c.home_workshop_caption}</div>
+              )}
             </div>
             <div className="reveal">
               <p className="eyebrow">Bespoke by Design</p>
@@ -122,7 +129,7 @@ export default async function HomePage() {
           </div>
           <div className="blog-grid reveal">
             {featuredPosts.map((post) => (
-              <PostCard key={post.title} post={{ ...post, featured: false }} />
+              <PostCard key={post.id} post={post} />
             ))}
           </div>
         </div>
