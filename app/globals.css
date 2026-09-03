@@ -148,7 +148,7 @@ p { margin: 0 0 1em; color: var(--color-text-dim); }
   align-items: center;
   gap: clamp(20px, 3vw, 42px);
 }
-.main-nav a {
+.main-nav a:not(.btn) {
   font-size: 0.78rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -157,8 +157,8 @@ p { margin: 0 0 1em; color: var(--color-text-dim); }
   border-bottom: 1px solid transparent;
   transition: color 0.2s ease, border-color 0.2s ease;
 }
-.main-nav a:hover,
-.main-nav a.is-active {
+.main-nav a:not(.btn):hover,
+.main-nav a:not(.btn).is-active {
   color: var(--color-text);
   border-color: var(--color-accent);
 }
