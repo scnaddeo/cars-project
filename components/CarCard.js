@@ -1,14 +1,20 @@
 import Link from "next/link";
 
-export default function CarCard({ car, detailsHref = "/inventory/", detailsLabel = "Enquire" }) {
+export default function CarCard({ car }) {
   const cover = car.images?.[0];
+  const href = `/inventory/${car.id}/`;
 
   return (
     <article className="car-card">
-      <div className="car-media">
+      <Link href={href} className="car-media">
         {cover && <img src={`/api/images/${cover}`} alt={`${car.make} ${car.model}`} />}
         <span className="car-badge">{car.badge}</span>
-      </div>
+        {car.images?.length > 1 && (
+          <span className="car-badge" style={{ left: "auto", right: 14 }}>
+            {car.images.length} Photos
+          </span>
+        )}
+      </Link>
       <div className="car-body">
         <div className="car-year">
           {car.year} · {car.make}
@@ -22,8 +28,8 @@ export default function CarCard({ car, detailsHref = "/inventory/", detailsLabel
         </div>
         <div className="car-footer">
           <span className="car-price">{car.price || "Price on Request"}</span>
-          <Link href={detailsHref} className="btn btn--ghost">
-            {detailsLabel}
+          <Link href={href} className="btn btn--ghost">
+            View Details
           </Link>
         </div>
       </div>
